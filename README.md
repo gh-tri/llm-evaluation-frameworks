@@ -6,9 +6,7 @@ A hands-on tour of the LLM evaluation and safety-testing landscape: eleven separ
 
 An ~8-minute walkthrough: the pattern this project follows, then a deep dive on the most interesting real bugs and design decisions this build actually surfaced.
 
-**▶ [Watch on YouTube](PASTE_YOUTUBE_LINK_HERE)**
-
-*(Replace the link above with your video's URL once the upload finishes — it's the only edit this README needs before it's complete.)*
+**▶ [[Watch on YouTube](https://youtu.be/-fVNhJ8-VTE)]**
 
 ---
 
