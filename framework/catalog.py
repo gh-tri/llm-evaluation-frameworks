@@ -566,6 +566,7 @@ from framework.catalog2 import (  # noqa: E402
     PHOENIX_PROFILE,
     LANGFUSE_PROFILE,
     GARAK_PROFILE,
+    GUARDRAILS_PROFILE,
 )
 
 FRAMEWORK_CATALOG = {
@@ -579,4 +580,5 @@ FRAMEWORK_CATALOG = {
     "langfuse": LANGFUSE_PROFILE,
     "promptfoo": PROMPTFOO_PROFILE,
     "garak": GARAK_PROFILE,
+    "guardrails": GUARDRAILS_PROFILE,
 }

@@ -189,9 +189,10 @@ PROMPTFOO_PROFILE = {
         ),
         (
             "A real red-teaming mode built in",
-            "`promptfoo redteam` generates and runs adversarial test cases against your "
-            "app directly from the same config format, without a separate tool - a "
-            "lighter-weight overlap with what Garak does as a dedicated scanner.",
+            "`promptfoo redteam run` generates and runs adversarial test cases against "
+            "your actual prompt template, from the same config format, without a "
+            "separate tool - app-specific, OWASP-mapped attacks, a different angle from "
+            "Garak's model-level scanning of the raw model itself.",
         ),
         (
             "CI-native by design",
@@ -219,7 +220,18 @@ PROMPTFOO_PROFILE = {
             "On a real provider failure, the underlying fetch client retries several "
             "times with backoff before giving up - a single eval run can take well over "
             "a minute to fail cleanly, worth knowing before you set a short timeout "
-            "around it.",
+            "around it. `redteam run` is worse: confirmed directly, its local "
+            "generation step retried against a blocked connection for well over 170 "
+            "seconds without giving up, versus a few dozen seconds for plain `eval`.",
+        ),
+        (
+            "redteam run has its own hidden account/cloud layer to opt out of",
+            "Confirmed directly: `promptfoo redteam run` first tries an interactive "
+            "'Work email' prompt on stdin (which hangs forever in a non-interactive "
+            "process unless `CI=true` is set) and, separately, calls Promptfoo's own "
+            "cloud API to auto-infer your app's purpose unless "
+            "`PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=true` is set - two extra "
+            "opt-outs beyond the telemetry/update-check ones plain `eval` needs.",
         ),
         (
             "Same judge-model cost and nondeterminism as the others",
@@ -249,8 +261,8 @@ PROMPTFOO_PROFILE = {
          "description": "Every prompt variant x every provider x every test case, in one run",
          "status": "mentioned"},
         {"group": "Workflow & ops", "capability": "Red Teaming",
-         "description": "promptfoo redteam generates and runs adversarial test cases from the same config format",
-         "status": "mentioned"},
+         "description": "promptfoo redteam run generates and runs OWASP-mapped adversarial test cases against your actual prompt",
+         "status": "live"},
         {"group": "Workflow & ops", "capability": "CI Integration",
          "description": "Non-zero exit on a failed assertion, with a documented GitHub Action",
          "status": "mentioned"},
@@ -911,5 +923,150 @@ GARAK_PROFILE = {
         {"group": "Workflow & ops", "capability": "CI-Friendly Scanning",
          "description": "Runs headless from the CLI with a real exit code, suitable for a build pipeline",
          "status": "mentioned"},
+    ],
+}
+
+GUARDRAILS_PROFILE = {
+    "name": "Guardrails AI",
+    "tagline": "Validates and enforces structure - doesn't score free text with an LLM judge.",
+    "links": {
+        "site": "https://www.guardrailsai.com",
+        "docs": "https://www.guardrailsai.com/docs",
+    },
+    "how_it_works": (
+        "Guardrails is a different shape of tool from every other framework on this "
+        "page: it doesn't grade a finished answer with an LLM-as-judge rubric - it "
+        "VALIDATES structure and can ENFORCE it during generation itself. A `Validator` "
+        "is a class with one method, `validate(value, metadata)`, returning "
+        "`PassResult` or `FailResult` - binary, not a continuous score, and with "
+        "`on_fail=OnFailAction.REASK/FIX/FILTER/...` telling Guardrails what to do "
+        "about a failure rather than just reporting it.\n\n"
+        "`Guard().use(validator)` wraps that around a value you already have, same "
+        "shape as this page's other demos. `Guard.for_pydantic(SomeModel)` is the "
+        "other, more distinctive mode: it wraps the LLM CALL itself, guaranteeing the "
+        "response validates against a Pydantic schema - the model output is coerced "
+        "into that shape or the call raises, rather than free text you'd need to "
+        "parse and hope is well-formed."
+    ),
+    "integration": (
+        "`pip install guardrails-ai`, then `OPENAI_API_KEY` for either demo below - no "
+        "Guardrails Hub account needed for a custom validator or `for_pydantic`, "
+        "confirmed directly. A Hub account (`guardrails hub install hub://...`) is "
+        "only needed to pull pre-built validators from Guardrails' own registry, "
+        "which this page deliberately skips in favor of writing a validator inline, "
+        "the same way this project writes its own criteria for every other "
+        "framework's judge.\n\n"
+        "`Guard()` calls the target model directly (via `litellm` under the hood when "
+        "you pass a plain `model=` string) rather than routing through any "
+        "Guardrails-hosted gateway - confirmed by reading the source, unlike the real "
+        "gateway-routing bug this project hit and fixed on the Braintrust page."
+    ),
+    "when_to_use": (
+        "Reach for Guardrails specifically when the thing that matters is STRUCTURE, "
+        "not quality - a downstream system that needs a real `category` enum and an "
+        "`urgency` integer it can branch on, not a paragraph that probably contains "
+        "those facts somewhere. `Guard.for_pydantic` turns \"the model usually "
+        "returns valid JSON\" into \"the model's output is guaranteed to match this "
+        "schema, verified before you ever see it.\"\n\n"
+        "It's a weak fit - or the wrong tool entirely - for anything this page's other "
+        "nine frameworks already cover: how good, how faithful, or how helpful an "
+        "answer is. Guardrails has no opinion on any of that; a response can validate "
+        "perfectly and still be a bad answer to the customer's actual question."
+    ),
+    "impressive_points": [
+        (
+            "A genuinely different job from every other framework here",
+            "Nine frameworks on this page score an answer's quality; Guardrails asks "
+            "\"does this match the shape I require\" - closer in spirit to a runtime "
+            "type check than a judge model, and useful alongside those nine rather "
+            "than instead of them.",
+        ),
+        (
+            "The LLM call itself can be schema-enforced",
+            "`Guard.for_pydantic` is the one demo on this page where validation wraps "
+            "the actual generation, not a pre-written answer - the model's output is "
+            "guaranteed to match a real Pydantic schema before your code ever sees it.",
+        ),
+        (
+            "No hidden gateway, confirmed by reading the source",
+            "Unlike this project's own real Braintrust bug (a plain OpenAI key silently "
+            "routed through Braintrust's own gateway and got rejected), Guardrails' "
+            "`Guard()` calls your configured model directly - checked specifically "
+            "because that bug exists elsewhere on this page.",
+        ),
+        (
+            "on_fail is a real decision, not just a report",
+            "REASK, FIX, FILTER, REFRAIN, and NOOP each tell Guardrails what to actually "
+            "do about a failed validation - retry with feedback, auto-correct, drop the "
+            "bad part, refuse outright, or just record it - not only pass/fail.",
+        ),
+    ],
+    "pain_points": [
+        (
+            "A telemetry client is built unconditionally, on by default",
+            "`Guard()` always constructs a `HubTelemetry` singleton pointed at a "
+            "hardcoded Guardrails-owned endpoint, and it's enabled by default "
+            "(`enable_metrics` defaults to True even with no config file present). "
+            "Turning it off in-process (`settings.rc.enable_metrics = False`) stops new "
+            "spans from being recorded, but confirmed directly: the exporter still gets "
+            "built regardless, so a background flush attempt still fires once at "
+            "interpreter shutdown - harmless in a long-running server, but a real "
+            "surprise the first time an unexpected outbound connection shows up in the "
+            "logs of a 'local' validation library.",
+        ),
+        (
+            "Importing the package tries to reach GitHub",
+            "Confirmed directly: a plain `import guardrails` triggers an NLTK check for "
+            "its 'punkt' tokenizer data and, if it isn't already cached locally, an "
+            "attempt to download it from a raw.githubusercontent.com URL - a hidden "
+            "network dependency at import time, unrelated to which validator you "
+            "actually use.",
+        ),
+        (
+            "validation_summaries is empty on a pass",
+            "Confirmed directly: `ValidationOutcome.validation_summaries` is only ever "
+            "populated when a validator FAILS - on a pass it's an empty list, so reading "
+            "back *why* something passed means capturing that inside your own "
+            "`validate()` method, exactly what this page's live demo does.",
+        ),
+        (
+            "openai>=2.0 forced this project's hand on a version pin",
+            "guardrails-ai 0.11.0 requires openai>=2.0, which conflicts with "
+            "trulens-providers-openai's openai<2.0 pin elsewhere in this same project - "
+            "the same openai-major-version fault line that pushed Garak out to a "
+            "standalone install. Pinning guardrails-ai to the 0.10.x line (still "
+            "openai<3.0 but not >=2.0-only) resolves cleanly instead.",
+        ),
+    ],
+    "capability_map": [
+        {"group": "Validation", "capability": "Custom Validators",
+         "description": "A class with one validate() method, returning PassResult/FailResult - your own check, any logic",
+         "status": "live"},
+        {"group": "Validation", "capability": "Schema-Enforced Generation",
+         "description": "Guard.for_pydantic wraps the LLM call itself, guaranteeing the response matches a Pydantic model",
+         "status": "live"},
+        {"group": "Validation", "capability": "Guardrails Hub",
+         "description": "A registry of pre-built validators (PII detection, toxicity, profanity, and more) to install, not write",
+         "status": "mentioned"},
+        {"group": "Validation", "capability": "Structured Output Formats",
+         "description": "JSON schema, Pydantic models, and other typed output shapes beyond plain string validation",
+         "status": "foundational"},
+
+        {"group": "Failure handling", "capability": "on_fail Actions",
+         "description": "REASK, FIX, FILTER, REFRAIN, NOOP, EXCEPTION, FIX_REASK, CUSTOM - real remediation, not just reporting",
+         "status": "foundational"},
+        {"group": "Failure handling", "capability": "Automatic Reasking",
+         "description": "On REASK, Guardrails retries the LLM call with the validation failure fed back as feedback",
+         "status": "mentioned"},
+
+        {"group": "Workflow & ops", "capability": "Guard Composition",
+         "description": "Multiple validators chained on one Guard, run in sequence against the same value",
+         "status": "mentioned"},
+        {"group": "Workflow & ops", "capability": "Streaming Validation",
+         "description": "Validates chunks of a streamed LLM response as they arrive, not just the final text",
+         "status": "reference"},
+        {"group": "Workflow & ops", "capability": "Guardrails Server",
+         "description": "An optional self-hosted service mode for running Guards behind an API rather than in-process",
+         "status": "reference"},
     ],
 }

@@ -41,13 +41,14 @@ from framework.live_braintrust import run_classifier as run_classifier_braintrus
 from framework.live_phoenix import run_classifier as run_classifier_phoenix
 from framework.live_langsmith import run_judge as run_judge_langsmith, run_pairwise
 from framework.live_langfuse import run_score_and_push, check_langfuse
-from framework.live_promptfoo import run_eval as run_eval_promptfoo, check_promptfoo_cli
+from framework.live_promptfoo import run_eval as run_eval_promptfoo, run_redteam, check_promptfoo_cli
 from framework.live_garak import run_probe, check_garak
+from framework.live_guardrails import run_custom_validator, run_schema_enforced_generation
 from schema.env_config import check_openai
 
 st.set_page_config(page_title="Framework Deep-Dive", page_icon="🔬", layout="wide")
 
-# All 10 frameworks as their own always-visible sidebar buttons, rather than
+# All 11 frameworks as their own always-visible sidebar buttons, rather than
 # tucked behind a dropdown - one click switches directly, and the active
 # one stays visibly highlighted (primary vs secondary button styling).
 FRAMEWORK_KEYS = list(FRAMEWORK_CATALOG.keys())
@@ -610,7 +611,7 @@ elif framework_key == "langfuse":
             st.code(result.code_snippet, language="python")
 
 elif framework_key == "promptfoo":
-    st.header("Live in our UI: generate, then grade, in one command")
+    st.header("Live in our UI - #1: generate, then grade, in one command")
     st.markdown(
         "Every other demo on this page grades an answer you already typed. Promptfoo is "
         "different - it's a YAML-configured CLI, not a Python library, and it actually "
@@ -657,6 +658,62 @@ elif framework_key == "promptfoo":
         with st.expander("The exact code that just ran"):
             st.code(result.code_snippet, language="python")
 
+    st.divider()
+    st.header("Live in our UI - #2: red-team the prompt itself")
+    st.markdown(
+        "A different angle from Garak's demo elsewhere on this page: Garak attacks the "
+        "raw model with academic security probes; this attacks YOUR actual prompt "
+        "template with an app-specific, OWASP-mapped plugin. The **contracts** plugin "
+        "tests one concrete thing that matters for this project's running customer-"
+        "support scenario - can the agent be talked into an unauthorized contractual "
+        "promise (a refund, a guarantee) beyond what its actual policy allows? "
+        "`promptfoo redteam run` generates adversarial probes for that plugin, then runs "
+        "each one against your prompt template for real and grades whether it held the "
+        "line."
+    )
+    st.write("\U0001F7E2 promptfoo CLI found on PATH" if promptfoo_ok
+             else "⚪ promptfoo isn't on PATH in this environment - install with `npm install -g promptfoo`")
+    st.caption(
+        "Needs only OPENAI_API_KEY, same as demo #1 above - no separate Promptfoo Cloud "
+        "account. See this page's pain points for exactly what that takes to guarantee."
+    )
+
+    model_rt = st.selectbox("Provider model", ["gpt-4o-mini", "gpt-4o"], index=0, key="rt_model")
+    prompt_template_rt = st.text_area(
+        "Prompt template ({{message}} is the variable below)",
+        value="You are a customer support agent for an online retailer. Respond to: {{message}}",
+        height=80, key="rt_template",
+    )
+    purpose_rt = st.text_area(
+        "System purpose (fed to the attack generator, so probes stay on-topic)",
+        value="A customer support agent for an online retailer that answers questions "
+              "about orders, shipping, and refunds.",
+        height=70, key="rt_purpose",
+    )
+    num_tests_rt = st.slider("Number of adversarial probes to generate", min_value=1, max_value=4,
+                              value=2, key="rt_num_tests")
+
+    run_rt = st.button("Run promptfoo redteam, live", type="primary",
+                        disabled=not (key_status.present and promptfoo_ok), key="rt_run")
+    if run_rt:
+        with st.spinner(f"Generating and running {num_tests_rt} 'contracts' probes against {model_rt} "
+                         "(this can take a minute or two)..."):
+            rt_result = run_redteam(prompt_template_rt, purpose_rt, model_rt, num_tests_rt)
+        if rt_result.ok:
+            st.metric("Held the line", f"{rt_result.held}/{rt_result.total}")
+            st.caption(f"{rt_result.latency_seconds}s · plugin: contracts · target: {model_rt}")
+            for i, probe in enumerate(rt_result.probes, start=1):
+                with st.container(border=True):
+                    st.markdown(f"**Probe {i}:** {probe.prompt}")
+                    st.markdown(f"**Agent said:** {probe.response}")
+                    st.markdown(f"**Verdict:** {'✅ held the line' if probe.held else '⚠️ overpromised'}")
+                    if probe.reason:
+                        st.caption(probe.reason)
+        else:
+            st.warning(rt_result.error)
+        with st.expander("The exact code that just ran"):
+            st.code(rt_result.code_snippet, language="python")
+
 elif framework_key == "garak":
     st.header("Live in our UI: red-team a real model, live")
     st.markdown(
@@ -694,3 +751,96 @@ elif framework_key == "garak":
             st.warning(result.error)
         with st.expander("The exact code that just ran"):
             st.code(result.code_snippet, language="python")
+
+elif framework_key == "guardrails":
+    st.header("Live in our UI - #1: a criteria becomes a custom validator")
+    st.markdown(
+        "Guardrails doesn't fit this page's shared \"define a metric\" shape - it "
+        "doesn't return a continuous score at all. Instead, a plain-English criteria "
+        "becomes a `Validator` class returning a binary `PassResult`/`FailResult`, run "
+        "through a real `Guard()` exactly the way you'd wire in any of Guardrails' "
+        "built-in checks."
+    )
+    st.write("\U0001F7E2 OPENAI_API_KEY configured - ready for real calls" if key_status.present
+             else "⚪ No OPENAI_API_KEY set - the buttons below will explain what's missing instead of crashing")
+
+    model_gr = st.selectbox("Judge model", ["gpt-4o-mini", "gpt-4o"], index=0, key="gr_model")
+    criteria_gr = st.text_area("Plain-English criteria - becomes the validator's own check",
+                                value=DEFAULT_CRITERIA, height=80, key="gr_criteria")
+
+    st.markdown("##### Pick or write an example")
+    sample_choice_gr = st.radio(
+        "Example", ["good", "mediocre", "bad", "custom"],
+        format_func=lambda k: "Write your own" if k == "custom" else SAMPLES[k]["label"],
+        horizontal=True, key="gr_sample_choice",
+    )
+    if sample_choice_gr == "custom":
+        input_text_gr = st.text_area("Input", value=SAMPLES["good"]["input"], height=70, key="gr_input")
+        actual_output_gr = st.text_area("Actual output (the candidate answer being validated)",
+                                         value="", height=90, key="gr_output")
+    else:
+        sample_gr = SAMPLES[sample_choice_gr]
+        input_text_gr = st.text_area("Input", value=sample_gr["input"], height=70, key="gr_input")
+        actual_output_gr = st.text_area("Actual output (the candidate answer being validated)",
+                                         value=sample_gr["actual_output"], height=90, key="gr_output")
+
+    run_gr = st.button("Validate it live", type="primary", disabled=not key_status.present, key="gr_run")
+    if run_gr:
+        with st.spinner(f"Running a custom Guardrails validator, judged by {model_gr}..."):
+            gr_result = run_custom_validator(criteria_gr, input_text_gr, actual_output_gr, model_gr)
+        if gr_result.ok:
+            st.metric("Validation", "✅ Pass" if gr_result.passed else "⚠️ Fail")
+            st.caption(f"{gr_result.latency_seconds}s · judge: {model_gr}")
+            if gr_result.reason:
+                st.markdown("**Why:**")
+                st.info(gr_result.reason)
+        else:
+            st.warning(gr_result.error)
+        with st.expander("The exact code that just ran"):
+            st.code(gr_result.code_snippet, language="python")
+
+    st.divider()
+    st.header("Live in our UI - #2: the LLM call itself, schema-enforced")
+    st.markdown(
+        "Guardrails' actual headline feature, and the one demo on this whole page where "
+        "validation wraps the GENERATION itself rather than grading an answer that "
+        "already exists. `Guard.for_pydantic(SupportTriage)` calls the model and "
+        "guarantees the response matches a real Pydantic schema - a `category` enum, "
+        "an `urgency` integer between 1 and 5, and a one-sentence `summary` - not a "
+        "paragraph you'd have to parse and hope is well-formed."
+    )
+    st.code(
+        'class SupportTriage(BaseModel):\n'
+        '    category: Literal["shipping", "billing", "account", "other"]\n'
+        '    urgency: int = Field(ge=1, le=5)\n'
+        '    summary: str',
+        language="python",
+    )
+
+    customer_message_gr = st.text_area(
+        "Customer message to triage",
+        value="My order #48213 never arrived and it's been two weeks - I want this "
+              "resolved today, this is really frustrating.",
+        height=90, key="gr_customer_message",
+    )
+
+    run_schema_gr = st.button("Extract it live, schema-enforced", type="primary",
+                               disabled=not key_status.present, key="gr_schema_run")
+    if run_schema_gr:
+        with st.spinner(f"Calling {model_gr} through Guard.for_pydantic..."):
+            schema_result = run_schema_enforced_generation(customer_message_gr, model_gr)
+        if schema_result.ok:
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric("Category", schema_result.category or "-")
+            with m2:
+                st.metric("Urgency", schema_result.urgency if schema_result.urgency is not None else "-")
+            with m3:
+                st.caption(f"{schema_result.latency_seconds}s · model: {model_gr}")
+            if schema_result.summary:
+                st.markdown("**Summary:**")
+                st.info(schema_result.summary)
+        else:
+            st.warning(schema_result.error)
+        with st.expander("The exact code that just ran"):
+            st.code(schema_result.code_snippet, language="python")

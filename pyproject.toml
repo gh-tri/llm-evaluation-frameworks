@@ -1,7 +1,7 @@
 [project]
 name = "llm-frameworks"
 version = "0.1.0"
-description = "Live, real-API demos of 10 LLM evaluation frameworks - DeepEval, Ragas, TruLens, Opik, Braintrust, Phoenix, LangSmith, Langfuse, Promptfoo, Garak."
+description = "Live, real-API demos of 11 LLM evaluation frameworks - DeepEval, Ragas, TruLens, Opik, Braintrust, Phoenix, LangSmith, Langfuse, Promptfoo, Garak, Guardrails AI."
 requires-python = ">=3.10"
 dependencies = [
     "pandas>=2.2",
@@ -21,6 +21,14 @@ dependencies = [
     "autoevals>=0.3.0",
     "arize-phoenix-evals>=0.20.0",
     "openevals>=0.0.9",
+    # Pinned below 0.11.0 on purpose: guardrails-ai 0.11.0 requires
+    # openai>=2.0, which conflicts with trulens-providers-openai's
+    # openai<2.0 pin above - the same openai-major-version fault line that
+    # pushes Garak out to a standalone install below. 0.10.x allows
+    # openai<3.0 without forcing >=2.0, and Guard.for_pydantic / the
+    # custom-validator API this project uses are unchanged between 0.10.2
+    # and 0.11.0 - confirmed directly. See README.md.
+    "guardrails-ai>=0.10.0,<0.11.0",
     # Promptfoo (npm CLI) and Garak (own CLI) are deliberately NOT Python
     # dependencies here - see README.md. Garak's current release needs
     # langchain>=1.3.14 and openai>=2.0, both incompatible with the
