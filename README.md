@@ -74,9 +74,3 @@ schema/
 ```
 
 ---
-
-## Problems I faced while integrating these frameworks
-
-Every framework here has real, undocumented gotchas that only surface once you actually wire up a live integration — hidden gateway defaults, version conflicts, deprecated attributes still shipped as current, background network calls nobody asked for.
-
-**→ Full write-up: [PROBLEMS.md](PROBLEMS.md)**
