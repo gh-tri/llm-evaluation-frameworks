@@ -1,0 +1,31 @@
+[project]
+name = "llm-frameworks"
+version = "0.1.0"
+description = "Live, real-API demos of 10 LLM evaluation frameworks - DeepEval, Ragas, TruLens, Opik, Braintrust, Phoenix, LangSmith, Langfuse, Promptfoo, Garak."
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.2",
+    "streamlit>=1.38",
+    "python-dotenv>=1.2.3",
+    "ragas>=0.3.1",
+    "deepeval>=4.2.3",
+    "trulens>=2.14.0",
+    "trulens-providers-openai>=2.14.0",
+    # Pinned to the 0.3.x line on purpose: ragas 0.3.1 imports
+    # langchain_community.chat_models.vertexai at module load time, which
+    # was removed in the 0.4.x restructuring (the langchain 1.0 split).
+    # >=0.3.29 is required by trulens-providers-openai.
+    "langchain-community>=0.3.29,<0.4.0",
+    "langfuse>=4.15.4",
+    "opik>=2.2.78",
+    "autoevals>=0.3.0",
+    "arize-phoenix-evals>=0.20.0",
+    "openevals>=0.0.9",
+    # Promptfoo (npm CLI) and Garak (own CLI) are deliberately NOT Python
+    # dependencies here - see README.md. Garak's current release needs
+    # langchain>=1.3.14 and openai>=2.0, both incompatible with the
+    # pins above; it's installed standalone and invoked over PATH.
+]
+
+[tool.uv]
+package = false
