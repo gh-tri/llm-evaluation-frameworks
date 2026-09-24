@@ -4,8 +4,6 @@ A hands-on tour of the LLM evaluation and safety-testing landscape: eleven separ
 
 ## 🎥 Demo Video
 
-An ~8-minute walkthrough: the pattern this project follows, then a deep dive on the most interesting real bugs and design decisions this build actually surfaced.
-
 **▶ [[Watch on YouTube](https://youtu.be/-fVNhJ8-VTE)]**
 
 ---
@@ -54,7 +52,7 @@ npm install -g promptfoo   # Node.js required
 uv tool install garak      # or: pipx install garak
 ```
 
-(Garak and Promptfoo are kept out of `pyproject.toml` on purpose — see [PROBLEMS.md](PROBLEMS.md) for why.)
+(Garak and Promptfoo are kept out of `pyproject.toml` on purpose.
 
 ## Project layout
 
