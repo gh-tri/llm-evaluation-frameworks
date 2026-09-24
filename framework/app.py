@@ -47,9 +47,26 @@ from schema.env_config import check_openai
 
 st.set_page_config(page_title="Framework Deep-Dive", page_icon="🔬", layout="wide")
 
-framework_key = st.sidebar.selectbox(
-    "Framework", list(FRAMEWORK_CATALOG.keys()), format_func=lambda k: FRAMEWORK_CATALOG[k]["name"]
-)
+# All 10 frameworks as their own always-visible sidebar buttons, rather than
+# tucked behind a dropdown - one click switches directly, and the active
+# one stays visibly highlighted (primary vs secondary button styling).
+FRAMEWORK_KEYS = list(FRAMEWORK_CATALOG.keys())
+if "framework_key" not in st.session_state or st.session_state.framework_key not in FRAMEWORK_KEYS:
+    st.session_state.framework_key = FRAMEWORK_KEYS[0]
+
+st.sidebar.markdown("#### Framework")
+for _key in FRAMEWORK_KEYS:
+    _is_active = _key == st.session_state.framework_key
+    if st.sidebar.button(
+        FRAMEWORK_CATALOG[_key]["name"],
+        key=f"nav_{_key}",
+        type="primary" if _is_active else "secondary",
+        width="stretch",
+    ):
+        st.session_state.framework_key = _key
+        st.rerun()
+
+framework_key = st.session_state.framework_key
 profile = FRAMEWORK_CATALOG[framework_key]
 
 st.title(profile["name"])
@@ -109,7 +126,7 @@ for group in capability_groups:
         for r in rows
     ])
     st.markdown(f"**{group}**")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
 st.divider()
 
@@ -407,7 +424,7 @@ elif framework_key == "ragas":
             else:
                 st.warning(f"{RAG_SAMPLE['answers'][key]['label']}: {result.error}")
         if rows:
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
             st.caption(
                 "Context Precision barely moves - it never reads the answer. Faithfulness and "
                 "Answer Correctness both drop on the hallucinated answer - that's the taxonomy "
@@ -494,7 +511,7 @@ elif framework_key == "trulens":
             else:
                 st.warning(f"{RAG_SAMPLE['answers'][key]['label']}: {result.error}")
         if rows_t:
-            st.dataframe(pd.DataFrame(rows_t), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(rows_t), width="stretch", hide_index=True)
             st.caption(
                 "Groundedness is the one that should move the most - the hallucinated answer "
                 "adds a claim (\"$20 store credit\") the retrieved context never mentions."

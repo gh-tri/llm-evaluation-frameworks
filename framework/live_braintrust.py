@@ -9,8 +9,18 @@ you write the whole grading template yourself, with Y/N (or any label)
 choices mapped to scores. This demo writes that template from the criteria
 sentence, matching Braintrust's own documented pattern exactly.
 
-Needs no Braintrust account either - autoevals is a standalone scoring
-library, decoupled from the Braintrust platform. Just OPENAI_API_KEY.
+Needs no Braintrust account for the platform itself - but autoevals'
+LLMClassifier DOES default to routing every call through Braintrust's own
+AI gateway (gateway.braintrust.dev) unless you hand it a real OpenAI
+client. Its `prepare_openai()` picks `base_url = OPENAI_BASE_URL or
+gateway.braintrust.dev`, and since that's the gateway, it authenticates
+with BRAINTRUST_API_KEY first, falling back to OPENAI_API_KEY only if
+that's unset - meaning a plain OPENAI_API_KEY silently gets sent to
+Braintrust's gateway as if it were a Braintrust key, and comes back
+"Invalid API Key" there instead of ever reaching OpenAI. The fix (and
+autoevals' own documented pattern): construct `OpenAI()` yourself and pass
+it as `client=`, which bypasses the gateway default entirely. Needs
+OPENAI_API_KEY.
 """
 import sys
 import time
@@ -51,13 +61,18 @@ def _build_template(criteria: str) -> str:
 def build_code_snippet(name: str, criteria: str, model: str) -> str:
     template = _build_template(criteria)
     return (
+        "from openai import OpenAI\n"
         "from autoevals import LLMClassifier\n\n"
+        "# Without client=OpenAI(), autoevals defaults to Braintrust's own AI gateway\n"
+        "# (gateway.braintrust.dev), which rejects a plain OPENAI_API_KEY - passing a\n"
+        "# real OpenAI client is what actually reaches OpenAI directly:\n"
         f"classifier = LLMClassifier(\n"
         f"    name={name!r},\n"
         f"    prompt_template={template!r},\n"
         "    choice_scores={'Y': 1, 'N': 0},\n"
         f"    model={model!r},\n"
         "    use_cot=True,\n"
+        "    client=OpenAI(),\n"
         ")\n"
         "result = classifier(output=<candidate answer>, input=<question>)\n"
         "result.score, result.metadata['rationale']  # -> what's shown below"
@@ -85,6 +100,7 @@ def run_classifier(
         )
 
     try:
+        from openai import OpenAI
         from autoevals import LLMClassifier
 
         classifier = LLMClassifier(
@@ -93,6 +109,7 @@ def run_classifier(
             choice_scores={"Y": 1, "N": 0},
             model=model,
             use_cot=True,
+            client=OpenAI(),
         )
 
         start = time.monotonic()
