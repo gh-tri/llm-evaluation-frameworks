@@ -4,7 +4,7 @@ A hands-on tour of the LLM evaluation and safety-testing landscape: eleven separ
 
 ## 🎥 Demo Video
 
-**▶ [[Watch on YouTube](https://youtu.be/-fVNhJ8-VTE)]**
+**▶ [Watch on YouTube](https://youtu.be/-fVNhJ8-VTE)**
 
 ---
 
@@ -38,8 +38,8 @@ The point isn't full coverage of every feature. It's proof that the integration 
 ## Quickstart
 
 ```bash
-git clone <this-repo-url>
-cd llm-frameworks
+git clone https://github.com/gh-tri/llm-evaluation-frameworks.git
+cd llm-evaluation-frameworks
 uv sync
 cp .env.example .env   # then fill in at least OPENAI_API_KEY
 uv run streamlit run framework/app.py
@@ -52,7 +52,7 @@ npm install -g promptfoo   # Node.js required
 uv tool install garak      # or: pipx install garak
 ```
 
-(Garak and Promptfoo are kept out of `pyproject.toml` on purpose.
+(Garak and Promptfoo are kept out of `pyproject.toml` on purpose.)
 
 ## Project layout
 
@@ -68,5 +68,3 @@ framework/
 schema/
   env_config.py         — the one shared helper (check_openai, check_langfuse, etc.)
 ```
-
----
